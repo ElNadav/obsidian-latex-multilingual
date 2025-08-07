@@ -4,6 +4,23 @@ An Obsidian plugin designed for bilingual users who frequently switch between a 
 
 This plugin automates the tedious process of switching keyboard layouts and text direction, allowing for a seamless and efficient note-taking experience.
 
+# Important Note:
+For the plugin to switch languages, currently the best solution i found is setting a custom keyboard shortcut for each language in windows keyboard layout settings and then executing this shortcut using the python server. to set up the keyboard shortcuts you need to go search for "Typing settings" in windows start menu, then go to "Advanced keyboard settings" and click on "Input language hot keys" and set your prefered keyboard shortcut for each language. ![alt text](image.png)
+
+Another important improvment you really should make is changing latex-suite plugin inline and block math execution snippet, i've changed how latex-suite starts inline math and block math so that it would work better with this plugin and prevent inline math flickering (just by adding a simple white space at the end of the expression). also i added the ability to start math mode both from hebrew and english. you start inline math by pressing ;' and block math by pressing /' 
+you should copy this lines to your latex-suite snippets code in obsidian: 
+    // Math mode
+
+    //{trigger: "(mk|MK)", "replacement": "$$0\\,$ $1", "options": "rtA"},
+    //{trigger: "(dm|DM)", "replacement": "$$$0$$", "options": "tA"},
+	{trigger: "ף,", replacement: "$$0\\,$ $1", options: "tA"},
+    {trigger: ";'", replacement: "$$0\\,$ $1", options: "tA"},
+	{trigger: "/''", replacement: "$$\n$0\n$$ $1", options: "tAw"},
+    {trigger: ".,", replacement: "$$\n $0 \n$$ $1", options: "tAw"},
+
+this is how it should look:
+![alt text](image-1.png)
+
 ## Features
 
 - **Automatic Language Switching:** Intelligently detects when your cursor enters or exits a MathJax environment ('$$...$$' or `$...$`) and automatically switches your system's keyboard layout.
