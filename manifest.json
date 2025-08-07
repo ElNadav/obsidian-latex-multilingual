@@ -1,0 +1,10 @@
+{
+	"id": "obsidian-latex-multilingual",
+	"name": "Obsidian Latex Multilingual",
+	"version": "1.0.0",
+	"minAppVersion": "1.5.0",
+	"description": "Automatically switches keyboard layout to English inside MathJax blocks and then back to the language of choice when exiting Mathjax.",
+	"author": "ElNadav",
+	"authorUrl": "https://github.com/ElNadav",
+	"isDesktopOnly": true
+}

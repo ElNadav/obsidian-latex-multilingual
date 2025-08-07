@@ -1,0 +1,6 @@
+/* --- styles.css --- */
+
+/* When manual LTR is active, force the ACTIVE line to be LTR */
+body.force-active-line-ltr .cm-active.cm-line {
+  direction: ltr !important;
+}
