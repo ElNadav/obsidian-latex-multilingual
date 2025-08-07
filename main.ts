@@ -1,22 +1,21 @@
 import { EditorView } from '@codemirror/view';
 import { syntaxTree } from '@codemirror/language';
 import { SyntaxNodeRef } from '@lezer/common';
-import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
-import { spawn, ChildProcess } from 'child_process';
+import { App, Notice, Plugin, PluginSettingTab, Setting, normalizePath } from 'obsidian';
+import { spawn, ChildProcess, exec } from 'child_process';
+import * as path from 'path';
 
 // --- SETTINGS ---
 interface LanguageSwitcherSettings {
 	isPluginEnabled: boolean;
-	pythonPath: string;
-	scriptPath: string;
+	basePythonPath: string;
 	englishShortcut: string;
 	hebrewShortcut: string;
 }
 
 const DEFAULT_SETTINGS: LanguageSwitcherSettings = {
 	isPluginEnabled: true,
-	pythonPath: 'python',
-	scriptPath: '',
+	basePythonPath: 'python',
 	englishShortcut: 'alt,shiftleft,2',
 	hebrewShortcut: 'alt,shiftleft,1',
 }
@@ -28,9 +27,22 @@ export default class AutoLanguageSwitcher extends Plugin {
 	isInsideMath = false;
 	serverProcess: ChildProcess | null = null;
 	debounceTimer: number | null = null;
+	serverFolderPath: string;
+	venvPythonPath: string;
+	serverScriptPath: string;
 
 	async onload() {
 		await this.loadSettings();
+
+		// Define paths relative to the plugin folder
+		// The 'basePath' property is not in the official API, so we cast to 'any' to access it.
+		const vaultPath = (this.app.vault.adapter as any).basePath;
+		const pluginDir = path.join(vaultPath, this.manifest.dir ?? '');
+		
+		this.serverFolderPath = normalizePath(path.join(pluginDir, 'server'));
+		this.venvPythonPath = normalizePath(path.join(this.serverFolderPath, 'venv', 'Scripts', 'python.exe'));
+		this.serverScriptPath = normalizePath(path.join(this.serverFolderPath, 'lang_server.py'));
+
 		this.addSettingTab(new LanguageSwitcherSettingTab(this.app, this));
 		this.statusBarItemEl = this.addStatusBarItem();
 
@@ -71,18 +83,15 @@ export default class AutoLanguageSwitcher extends Plugin {
 	onunload() {
 		this.stopServer();
 		if (this.debounceTimer) clearTimeout(this.debounceTimer);
-		// Clean up body class on unload
 		document.body.classList.remove('force-active-line-ltr');
 	}
 
 	startServer() {
 		if (this.serverProcess) return;
-		if (!this.settings.scriptPath || !this.settings.pythonPath) {
-			new Notice("Python or script path not set in settings.");
-			this.updateStatusBar();
-			return;
-		}
-		this.serverProcess = spawn(this.settings.pythonPath, [this.settings.scriptPath]);
+
+		console.log("Starting Python server...");
+		// Use the Python executable from the virtual environment
+		this.serverProcess = spawn(this.venvPythonPath, [this.serverScriptPath]);
 		this.updateStatusBar();
 
 		if (this.serverProcess) {
@@ -139,8 +148,7 @@ export default class AutoLanguageSwitcher extends Plugin {
 		const shortcut = language === 'english' ? this.settings.englishShortcut : this.settings.hebrewShortcut;
 		const port = 8181;
 		try {
-			const response = await fetch(`http://127.0.0.1:${port}/press_shortcut?keys=${shortcut}`);
-			if (!response.ok) throw new Error("Server responded with an error.");
+			await fetch(`http://127.0.0.1:${port}/press_shortcut?keys=${shortcut}`);
             this.updateStatusBar();
 		} catch (error) {
 			console.error("Failed to press shortcut. Server might be down.");
@@ -173,7 +181,7 @@ export default class AutoLanguageSwitcher extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-		this.app.workspace.updateOptions(); // Force editor refresh
+		this.app.workspace.updateOptions();
 	}
 }
 
@@ -191,29 +199,6 @@ class LanguageSwitcherSettingTab extends PluginSettingTab {
 		containerEl.empty();
 		containerEl.createEl('h2', {text: 'Auto Language Switcher Settings'});
 
-        const statusSetting = new Setting(containerEl)
-			.setName('Server Status')
-			.setDesc('Check if the Python background server is running correctly.');
-        const statusText = statusSetting.controlEl.createEl("span", { text: "Checking..." });
-        const checkStatus = async () => {
-			statusText.setText("Checking...");
-            try {
-                const response = await fetch(`http://127.0.0.1:8181/status`);
-                if (response.ok) {
-                    statusText.setText("Online");
-                    statusText.style.color = "var(--text-success)";
-                } else {
-                    statusText.setText("Offline (Error)");
-                    statusText.style.color = "var(--text-error)";
-                }
-            } catch (error) {
-                statusText.setText("Offline");
-                statusText.style.color = "var(--text-error)";
-            }
-        };
-        statusSetting.addButton(button => button.setButtonText("Check Again").onClick(checkStatus));
-        checkStatus();
-
         new Setting(containerEl)
 			.setName('Enable Auto Switching')
 			.setDesc('Turn the automatic language switching on or off.')
@@ -226,27 +211,53 @@ class LanguageSwitcherSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		containerEl.createEl('h3', { text: 'Paths' });
+		containerEl.createEl('h3', { text: 'Server Setup' });
 		new Setting(containerEl)
-			.setName('Python Executable Path')
-			.setDesc('The full path to your python.exe.')
+			.setName('Base Python Executable Path')
+			.setDesc('The full path to your globally installed python.exe. This is only needed for the initial server setup.')
 			.addText(text => text
 				.setPlaceholder('C:\\Users\\...\\python.exe')
-				.setValue(this.plugin.settings.pythonPath)
+				.setValue(this.plugin.settings.basePythonPath)
 				.onChange(async (value) => {
-					this.plugin.settings.pythonPath = value;
+					this.plugin.settings.basePythonPath = value;
 					await this.plugin.saveSettings();
 				}));
-		
+
+		const setupDesc = document.createDocumentFragment();
+		setupDesc.append(
+			'Click this button to create an isolated Python environment for the server inside the plugin folder.',
+			setupDesc.createEl('br'),
+			'This ensures the plugin\'s dependencies do not conflict with your other Python projects.'
+		);
+
 		new Setting(containerEl)
-			.setName('Server Script Path')
-			.setDesc('The full path to the lang_server.py script.')
-			.addText(text => text
-				.setPlaceholder('C:\\obsidian-switcher-server\\lang_server.py')
-				.setValue(this.plugin.settings.scriptPath)
-				.onChange(async (value) => {
-					this.plugin.settings.scriptPath = value;
-					await this.plugin.saveSettings();
+			.setName('Setup Server Environment')
+			.setDesc(setupDesc)
+			.addButton(button => button
+				.setButtonText("Setup")
+				.setCta()
+				.onClick(async () => {
+					button.setButtonText("Setting up...");
+					button.setDisabled(true);
+
+					const venvPath = normalizePath(this.plugin.serverFolderPath + '/venv');
+					const requirementsPath = normalizePath(this.plugin.serverFolderPath + '/requirements.txt');
+
+					const venvCommand = `"${this.plugin.settings.basePythonPath}" -m venv "${venvPath}"`;
+					const pipCommand = `"${this.plugin.venvPythonPath}" -m pip install -r "${requirementsPath}"`;
+					
+					try {
+						new Notice("Creating virtual environment...");
+						await this.runCommand(venvCommand);
+						new Notice("Installing dependencies...");
+						await this.runCommand(pipCommand);
+						new Notice("Server setup complete! Please restart the plugin.", 10000);
+						button.setButtonText("Setup Complete");
+					} catch (err) {
+						new Notice("Server setup failed. Check the developer console (Ctrl+Shift+I) for errors.", 10000);
+						console.error(err);
+						button.setButtonText("Setup Failed");
+					}
 				}));
 
 		containerEl.createEl('h3', { text: 'Shortcuts' });
@@ -271,5 +282,21 @@ class LanguageSwitcherSettingTab extends PluginSettingTab {
 					this.plugin.settings.hebrewShortcut = value;
 					await this.plugin.saveSettings();
 				}));
+	}
+
+	// Helper function to run shell commands
+	async runCommand(command: string): Promise<string> {
+		return new Promise((resolve, reject) => {
+			exec(command, (error, stdout, stderr) => {
+				if (error) {
+					console.error(`exec error: ${error}`);
+					return reject(error);
+				}
+				if (stderr) {
+					console.error(`stderr: ${stderr}`);
+				}
+				resolve(stdout);
+			});
+		});
 	}
 }
