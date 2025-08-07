@@ -6,11 +6,7 @@ This plugin automates the tedious process of switching keyboard layouts and text
 
 ## Features
 
-- **Automatic Language Switching:** Intelligently detects when your cursor enters or exits a MathJax environment (
-    
-    ...
-    
-    or `$...$`) and automatically switches your system's keyboard layout.
+- **Automatic Language Switching:** Intelligently detects when your cursor enters or exits a MathJax environment ('$$...$$' or `$...$`) and automatically switches your system's keyboard layout.
     
 - **Self-Contained Server:** The plugin automatically starts and stops its own lightweight Python background server, so you never have to manage it manually.
     
