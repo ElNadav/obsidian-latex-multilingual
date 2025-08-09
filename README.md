@@ -51,7 +51,12 @@ The plugin uses a robust client-server model to safely interact with your operat
 
 This architecture ensures that the plugin never leaves the secure sandbox of Obsidian, while still giving you powerful automation capabilities.
 
-## Requirements
+## Installation of the latest version:
+All you need to do is go to the [releases tab](https://github.com/ElNadav/obsidian-latex-multilingual/releases) and download the "One Click Setup" version.
+it will download a rar containing all the necesarry files.
+from there just copy that folder as it is into your .obsidian/plugins folder, open obsidian and reload community plugins. you should now see it in your plugins list, enable it, go to it's settings tab and click the "Setup Server Environment" button. that's it the plugin + python server are now running and ready to go!
+
+## Requirements for developing and building this plugin on your own
 
 - Obsidian v1.5.0 or newer.
     
