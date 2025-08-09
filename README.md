@@ -552,3 +552,6 @@ Congratulations on completing this project! You've built a powerful, customizabl
 ## License
 
 This plugin is released under the MIT License.
+
+
+<script type='text/javascript' src='https://storage.ko-fi.com/cdn/widget/Widget_2.js'></script><script type='text/javascript'>kofiwidget2.init('Buy ElNadav a Coffee', '#f57873', 'V7V21JFJZT');kofiwidget2.draw();</script> 
